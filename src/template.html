@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>GNU units atlas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: a drafting table. Quantities on the left, the selected quantity in the middle
+   (a logarithmic ruler and the definition tree), the selected unit on the right. */
+:root {
+  --paper: #eef1ee;      /* drafting film */
+  --sheet: #f8faf8;
+  --ink: #18221f;
+  --ink-2: #4d5a55;
+  --ink-3: #7b8781;
+  --rule: #d3dad5;
+  --brass: #c98a0c;      /* folding-rule yellow, darkened for text */
+  --brass-soft: #f3d98f;
+  --mark: #1f6f8b;       /* blueprint cyan for links and selection */
+  --mark-soft: #d8eaf0;
+  --font-display: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #111614; --sheet: #182019; --ink: #e3ebe6; --ink-2: #a9b6af; --ink-3: #7d8a83;
+    --rule: #2b3631; --brass: #f2bd3a; --brass-soft: #4a3a10; --mark: #6cc3de; --mark-soft: #173540;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #111614; --sheet: #182019; --ink: #e3ebe6; --ink-2: #a9b6af; --ink-3: #7d8a83;
+  --rule: #2b3631; --brass: #f2bd3a; --brass-soft: #4a3a10; --mark: #6cc3de; --mark-soft: #173540;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 14px/1.5 var(--font-body); }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 40px; max-width: 1500px; margin: 0 auto; }
+header.top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; padding-bottom: 14px; border-bottom: 2px solid var(--ink); }
+h1 { font: 600 28px/1.1 var(--font-display); letter-spacing: .01em; margin: 0; }
+h1 small { display: block; font: 400 13px/1.4 var(--font-body); color: var(--ink-2); letter-spacing: 0; margin-top: 4px; }
+.search { position: relative; flex: 1 1 280px; max-width: 420px; }
+.search input { width: 100%; font: 15px var(--font-body); padding: 9px 12px; border: 1.5px solid var(--ink-3); border-radius: 6px; background: var(--sheet); color: var(--ink); }
+.search input:focus-visible, button:focus-visible, a:focus-visible { outline: 2px solid var(--mark); outline-offset: 2px; }
+.results { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; box-shadow: 0 8px 24px rgb(0 0 0 / .15); max-height: 360px; overflow: auto; z-index: 5; }
+.results button { display: flex; gap: 10px; justify-content: space-between; width: 100%; text-align: left; border: 0; background: none; color: var(--ink); padding: 7px 12px; font: 14px var(--font-body); cursor: pointer; }
+.results button:hover, .results button.on { background: var(--mark-soft); }
+.results .q { color: var(--ink-3); font-size: 12px; white-space: nowrap; }
+.grid { display: grid; grid-template-columns: 250px minmax(0, 1fr) 360px; gap: 22px; margin-top: 18px; align-items: start; }
+@media (max-width: 1180px) { .grid { grid-template-columns: 200px minmax(0, 1fr) 310px; gap: 16px; } }
+@media (max-width: 960px) { .grid { grid-template-columns: 200px minmax(0, 1fr); } .detail { grid-column: 1 / -1; } }
+@media (max-width: 760px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+.label { font: 600 11px/1.2 var(--font-body); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 8px; }
+/* quantities */
+nav.qs { position: sticky; top: max(12px, env(safe-area-inset-top, 0px)); max-height: calc(100vh - 40px); overflow: auto; padding-right: 4px; }
+@media (max-width: 760px) { nav.qs { position: static; max-height: 260px; } }
+.qs button { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; width: 100%; text-align: left; border: 0; border-left: 3px solid transparent; background: none; color: var(--ink); padding: 5px 8px; font: 14px/1.3 var(--font-body); cursor: pointer; border-radius: 0 4px 4px 0; }
+.qs button:hover { background: var(--sheet); }
+.qs button.on { border-left-color: var(--brass); background: var(--sheet); font-weight: 600; }
+.qs .n { font: 12px var(--font-data); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.qs .f { display: block; font: 11px var(--font-data); color: var(--ink-3); font-weight: 400; overflow-wrap: anywhere; }
+.qs .more { color: var(--mark); font-size: 13px; padding: 8px; }
+/* main */
+main { min-width: 0; }
+.qhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.qhead h2 { font: 600 26px/1.15 var(--font-display); margin: 0; text-wrap: balance; }
+.qhead .f { font: 16px var(--font-data); color: var(--brass); }
+.qhead .meta { color: var(--ink-2); font-size: 13px; flex-basis: 100%; }
+.tabs { display: flex; gap: 4px; margin: 14px 0 0; border-bottom: 1px solid var(--rule); }
+.tabs button { border: 0; background: none; color: var(--ink-2); font: 600 14px var(--font-body); padding: 8px 12px; cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.tabs button.on { color: var(--ink); border-bottom-color: var(--brass); }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 8px 8px; padding: 14px; }
+.hint { color: var(--ink-2); font-size: 13px; margin: 0 0 10px; max-width: 70ch; }
+.ruler-box { overflow-x: auto; }
+svg text { font-family: var(--font-body); }
+.tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--paper); font: 12px/1.4 var(--font-body); padding: 6px 9px; border-radius: 5px; z-index: 20; max-width: 280px; }
+.tip b { font-family: var(--font-data); font-weight: 500; }
+/* tree */
+.treebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.treebar input { flex: 1 1 180px; font: 14px var(--font-body); padding: 6px 10px; border: 1px solid var(--rule); border-radius: 5px; background: var(--paper); color: var(--ink); }
+.btn { border: 1px solid var(--rule); background: var(--paper); color: var(--ink); font: 500 13px var(--font-body); padding: 6px 10px; border-radius: 5px; cursor: pointer; }
+.btn:hover { border-color: var(--ink-3); }
+.tree { font-size: 14px; max-height: 70vh; overflow: auto; }
+.tree ul { list-style: none; margin: 0; padding-left: 18px; border-left: 1px dashed var(--rule); }
+.tree > ul { padding-left: 0; border-left: 0; }
+.row { display: flex; gap: 8px; align-items: baseline; padding: 2px 4px; border-radius: 4px; cursor: pointer; min-width: 0; }
+.row:hover { background: var(--mark-soft); }
+.row.sel { background: var(--brass-soft); }
+.tw { width: 16px; flex: none; color: var(--ink-3); font: 12px var(--font-data); text-align: center; border: 0; background: none; padding: 0; cursor: pointer; }
+.nm { font: 500 14px var(--font-data); color: var(--ink); white-space: nowrap; }
+.df { color: var(--ink-3); font: 12px var(--font-data); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.cnt { color: var(--ink-3); font-size: 11px; white-space: nowrap; }
+.alias .nm { color: var(--ink-2); font-weight: 400; }
+.badge { font: 600 10px var(--font-body); letter-spacing: .05em; text-transform: uppercase; padding: 1px 5px; border-radius: 3px; background: var(--rule); color: var(--ink-2); white-space: nowrap; }
+.badge.fn { background: var(--mark-soft); color: var(--mark); }
+/* detail */
+.detail { position: sticky; top: max(12px, env(safe-area-inset-top, 0px)); background: var(--sheet); border: 1px solid var(--rule); border-top: 4px solid var(--brass); border-radius: 8px; padding: 16px; min-width: 0; max-height: calc(100vh - 30px); overflow: auto; }
+@media (max-width: 960px) { .detail { position: static; max-height: none; } }
+.detail h3 { font: 600 24px/1.15 var(--font-data); margin: 0 0 4px; overflow-wrap: anywhere; }
+.detail .def { font: 14px/1.5 var(--font-data); background: var(--paper); border-radius: 5px; padding: 8px 10px; margin: 10px 0; overflow-wrap: anywhere; }
+.detail .val { font: 600 18px/1.3 var(--font-data); color: var(--ink); overflow-wrap: anywhere; }
+.detail section { margin-top: 16px; }
+.detail p { margin: 0 0 8px; }
+.u { color: var(--mark); cursor: pointer; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; font-family: var(--font-data); background: none; border: 0; padding: 0; font-size: inherit; }
+.chain { list-style: none; margin: 0; padding: 0; font: 13px/1.5 var(--font-data); }
+.chain li { padding: 3px 0 3px 14px; border-left: 2px solid var(--brass); }
+.chain li .eq { color: var(--ink-3); }
+table.conv { width: 100%; border-collapse: collapse; font: 13px var(--font-data); font-variant-numeric: tabular-nums; }
+table.conv td { padding: 3px 0; border-bottom: 1px solid var(--rule); }
+table.conv td:first-child { text-align: right; padding-right: 8px; white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips .u { text-decoration: none; background: var(--paper); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 6px; }
+.gq { color: var(--ink-3); font-size: 12px; margin: 8px 0 4px; }
+.src { color: var(--ink-3); font-size: 12px; }
+.comment { color: var(--ink-2); font-size: 13px; }
+.ego { width: 100%; height: auto; }
+.fac { color: var(--brass); font-size: 12px; }
+.u.pf { color: var(--brass); }
+table.rel { width: 100%; border-collapse: collapse; font: 13px var(--font-data); font-variant-numeric: tabular-nums; }
+table.rel td { padding: 3px 6px 3px 0; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+table.rel td:first-child { white-space: nowrap; }
+table.rel .other { color: var(--ink-3); font-size: 12px; }
+details.uses { margin: 6px 0; }
+details.uses summary { cursor: pointer; color: var(--ink-2); font-size: 13px; padding: 3px 0; }
+details.uses table { margin-bottom: 6px; }
+.srcbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 0; border-bottom: 1px solid var(--rule); font-size: 13px; color: var(--ink-2); }
+.srcbar .label { margin: 0; }
+.srcbar label.btn { display: inline-block; }
+.srcbar .hint2 { color: var(--ink-3); font-size: 12px; }
+.srcmsg { font-size: 13px; color: var(--ink-2); padding: 8px 12px; margin-top: 10px; border: 1px solid var(--rule); border-left: 3px solid var(--brass); border-radius: 4px; background: var(--paper); }
+.srcmsg p { margin: 2px 0; }
+.srcmsg .err { color: var(--mark); }
+.srcmsg ul { margin: 6px 0 0; padding-left: 18px; max-height: 240px; overflow: auto; }
+.srcmsg summary { cursor: pointer; }
+body.dropping .wrap { outline: 3px dashed var(--brass); outline-offset: -6px; }
+.qsel, .sheetclose { display: none; }
+[data-app] .srcbar .hint2 { display: none; }
+@media (max-width: 760px) {
+  h1 { font-size: 24px; }
+  .srcbar .hint2 { display: none; }
+  nav.qs { max-height: none; overflow: visible; }
+  nav.qs #qlist { display: none; }
+  .qsel { display: block; width: 100%; font: 16px var(--font-body); padding: 10px 12px; border: 1.5px solid var(--ink-3); border-radius: 6px; background: var(--sheet); color: var(--ink); }
+  .search input { font-size: 16px; }
+  .tabs button { padding: 10px 14px; }
+  .detail { position: fixed; left: 0; right: 0; bottom: 0; top: max(48px, calc(env(safe-area-inset-top, 0px) + 40px)); z-index: 30; max-height: none; border-radius: 14px 14px 0 0; padding: 56px 16px calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateY(105%); transition: transform .22s ease-out; box-shadow: 0 -10px 30px rgb(0 0 0 / .25); overscroll-behavior: contain; visibility: hidden; }
+  body.sheet .detail { transform: none; visibility: visible; }
+  .sheetclose { position: fixed; z-index: 31; right: 14px; top: calc(max(48px, calc(env(safe-area-inset-top, 0px) + 40px)) + 12px); }
+  body.sheet .sheetclose { display: block; }
+  body.sheet { overflow: hidden; }
+  body.sheet::before { content: ""; position: fixed; inset: 0; background: rgb(0 0 0 / .35); z-index: 29; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <h1>GNU units atlas<small id="sub">All units from definitions.units, arranged by quantity</small></h1>
+    <div class="search">
+      <label class="label" for="q">Find a unit</label>
+      <input id="q" type="search" placeholder="for example foot, verst, joule" autocomplete="off">
+      <div class="results" id="results" hidden></div>
+    </div>
+  </header>
+  <div class="srcbar">
+    <span class="label">Source</span>
+    <span id="srcinfo"></span>
+    <label class="btn" for="file">Load another definitions file…</label>
+    <input id="file" type="file" multiple accept=".units,.txt,text/plain" hidden>
+    <button class="btn" id="reset" hidden>Back to the bundled version</button>
+    <span class="hint2">or drop the file onto the page. Add currency.units if you have it.</span>
+  </div>
+  <div class="srcmsg" id="srcmsg" hidden></div>
+
+  <div class="grid">
+    <nav class="qs" aria-label="Quantities">
+      <p class="label">Quantities</p>
+      <select id="qsel" class="qsel" aria-label="Quantity"></select>
+      <div id="qlist"></div>
+    </nav>
+
+    <main>
+      <div class="qhead" id="qhead"></div>
+      <div class="tabs" role="tablist">
+        <button id="tab-ruler" class="on" role="tab" aria-selected="true">Scale</button>
+        <button id="tab-tree" role="tab" aria-selected="false">Family tree</button>
+      </div>
+      <div class="panel" id="panel-ruler">
+        <p class="hint" id="ruler-hint">Each dot is a unit, placed by its size. The scale is logarithmic: each mark is ten times the one before. Click a dot for details.</p>
+        <div class="ruler-box"><svg id="ruler" role="img" aria-label="Logarithmic scale of the units"></svg></div>
+      </div>
+      <div class="panel" id="panel-tree" hidden>
+        <p class="hint">Which unit is derived from which. Under each unit are the units defined in terms of it, with their definitions. Units without a parent in this quantity are built from other quantities.</p>
+        <div class="treebar">
+          <input id="tf" type="search" placeholder="Filter this quantity" aria-label="Filter this quantity">
+          <button class="btn" id="expand">Expand all</button>
+          <button class="btn" id="collapse">Collapse</button>
+        </div>
+        <div class="tree" id="tree"></div>
+      </div>
+    </main>
+
+    <aside class="detail" id="detail" aria-live="polite"></aside>
+    <button class="sheetclose" id="sheetclose" aria-label="Close">✕ Close</button>
+  </div>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script type="application/json" id="files">__FILES__</script>
+<script>__CORE__</script>
+<script>
+(function () {
+  const KIND = { u: "unit", p: "base unit", d: "dimensionless base", f: "function", t: "table" };
+  let DATA, U, G, byName, PREFIX_G, kids, desc, PREFIXES;
+  function groupIndex(name) { return G.findIndex(g => g.name === name); }
+  function setData(D) {
+    DATA = D; U = D.units; G = D.groups;
+    PREFIX_G = groupIndex("Prefixes");
+    byName = new Map();
+    U.forEach((u, i) => { if (!byName.has(u.n)) byName.set(u.n, i); if (u.g === PREFIX_G) byName.set(u.n + "-", i); });
+    // children within the group, for the tree
+    kids = U.map(() => []);
+    U.forEach((u, i) => { if (u.p != null) kids[u.p].push(i); });
+    desc = new Array(U.length).fill(-1);
+    U.forEach((_, i) => countDesc(i));
+    PREFIXES = U.filter(u => u.g === PREFIX_G).sort((a, b) => b.n.length - a.n.length);
+  }
+  function countDesc(i) { if (desc[i] >= 0) return desc[i]; let n = 0; desc[i] = 0; for (const c of kids[i]) n += 1 + countDesc(c); return desc[i] = n; }
+
+  let curG = 0, curU = null, tab = "ruler";
+  const expanded = new Set();
+
+  // ------------------------------------------------------------ formatting
+  const SUPS = { "-": "⁻", "0": "⁰", "1": "¹", "2": "²", "3": "³", "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹" };
+  function sup(n) { return String(n).split("").map(c => SUPS[c] || c).join(""); }
+  function num(v) {
+    if (v == null) return "–";
+    if (v === 0) return "0";
+    const a = Math.abs(v);
+    if (a >= 1e-4 && a < 1e7) return NF.format(Number(v.toPrecision(7)));
+    const e = Math.floor(Math.log10(a)), m = v / Math.pow(10, e);
+    return Number(m.toPrecision(6)).toString() + " × 10" + sup(e);
+  }
+  const NF = new Intl.NumberFormat("en-GB", { maximumSignificantDigits: 7 });
+  function unitOf(g) { const f = G[g].f; return f && f !== "1" ? " " + f : ""; }
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+  function ulink(i, text) { return `<button class="u" data-u="${i}">${esc(text || U[i].n)}</button>`; }
+  /** How many b's fit in one a, when both are of the same quantity; null otherwise. */
+  function ratio(a, b) {
+    const ua = U[a], ub = U[b];
+    return ua.g === ub.g && ua.v > 0 && ub.v > 0 && ua.g !== PREFIX_G ? ua.v / ub.v : null;
+  }
+  function shortNum(v) { const a = Math.abs(v); return a >= 1e-3 && a < 1e6 ? new Intl.NumberFormat("en-GB", { maximumSignificantDigits: 5 }).format(v) : num(v); }
+  function gname(g) { return G[g].name || "Quantity " + G[g].f; }
+
+  // ------------------------------------------------------------ quantity list
+  let showAll = false;
+  function renderGroups() {
+    const list = G.map((g, i) => i).filter(i => showAll || G[i].n >= 5 || i === curG);
+    let h = list.map(i => `<button data-g="${i}" class="${i === curG ? "on" : ""}"><span>${esc(gname(i))}${G[i].f && G[i].f !== "1" ? `<span class="f">${esc(G[i].f)}</span>` : ""}</span><span class="n">${G[i].n}</span></button>`).join("");
+    const hidden = G.length - list.length;
+    if (hidden > 0) h += `<button class="more" id="more">Show ${hidden} small quantities</button>`;
+    else if (showAll) h += `<button class="more" id="more">Hide small quantities</button>`;
+    qlist.innerHTML = h;
+    qsel.innerHTML = G.map((g, i) => i).sort((a, b) => (G[b].name ? 1 : 0) - (G[a].name ? 1 : 0) || G[b].n - G[a].n)
+      .map(i => `<option value="${i}"${i === curG ? " selected" : ""}>${esc(gname(i))} (${G[i].n})</option>`).join("");
+  }
+  const qsel = document.getElementById("qsel");
+  qsel.addEventListener("change", () => selectGroup(+qsel.value, true));
+  const qlist = document.getElementById("qlist");
+  qlist.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.id === "more") { showAll = !showAll; renderGroups(); return; }
+    selectGroup(+b.dataset.g, true);
+  });
+
+  function selectGroup(g, pickUnit) {
+    curG = g;
+    if (pickUnit) {
+      const best = U.map((u, i) => i).filter(i => U[i].g === g).sort((a, b) => U[b].use.length - U[a].use.length)[0];
+      curU = G[g].base != null ? G[g].base : best;
+    }
+    expanded.clear();
+    renderGroups(); renderHead(); renderMain(); renderDetail();
+  }
+
+  function renderHead() {
+    const g = G[curG];
+    const en = g.en.length ? "GNU calls this " + g.en.join(", ") + ". " : "";
+    const fn = U.filter(u => u.g === curG && (u.k === "f" || u.k === "t")).length;
+    document.getElementById("qhead").innerHTML =
+      `<h2>${esc(gname(curG))}</h2>${g.f && g.f !== "1" ? `<span class="f">${esc(g.f)}</span>` : ""}
+       <span class="meta">${g.n} ${g.n === 1 ? "unit" : "units"}${fn ? `, of which ${fn} ${fn > 1 ? "are functions or tables" : "is a function or table"}` : ""}. ${en}${curG === groupIndex("Money") ? (source && source.uploaded && source.uploaded.includes("currency.units") ? "Exchange rates come from your currency.units." : "Exchange rates come from the bundled currency.units and are not current.") : ""}</span>`;
+  }
+
+  // ------------------------------------------------------------ ruler (log scale)
+  const tip = document.getElementById("tip");
+  function showTip(e, html) { tip.innerHTML = html; tip.hidden = false; const x = Math.min(e.clientX + 14, innerWidth - 300); tip.style.left = x + "px"; tip.style.top = (e.clientY + 14) + "px"; }
+  function hideTip() { tip.hidden = true; }
+
+  function renderRuler() {
+    const svg = document.getElementById("ruler");
+    const box = svg.parentElement;
+    const items = U.map((u, i) => i).filter(i => U[i].g === curG && U[i].v != null && U[i].v > 0);
+    const hint = document.getElementById("ruler-hint");
+    if (!items.length) { svg.innerHTML = ""; svg.setAttribute("height", 40); hint.textContent = "This quantity has only functions or tables, which have no fixed size. See them in the family tree."; return; }
+    hint.textContent = "Each dot is a unit, placed by its size" + (unitOf(curG) ? " in" + unitOf(curG) : "") + ". The scale is logarithmic: each mark is ten times the one before. " + (narrow.matches ? "Tap" : "Click") + " a dot for details.";
+    const W = Math.max(box.clientWidth, 300), padL = 16, padR = 16;
+    let lo = Infinity, hi = -Infinity;
+    for (const i of items) { const l = Math.log10(U[i].v); lo = Math.min(lo, l); hi = Math.max(hi, l); }
+    lo = Math.floor(lo); hi = Math.ceil(hi); if (hi === lo) { hi += 1; lo -= 1; }
+    const x = l => padL + (l - lo) / (hi - lo) * (W - padL - padR);
+    // stack dots that land on the same few pixels
+    const R = W < 500 ? 3 : 4, cols = new Map();
+    const pts = items.map(i => {
+      const px = x(Math.log10(U[i].v)), key = Math.round(px / (R * 2.2));
+      const n = cols.get(key) || 0; cols.set(key, n + 1);
+      return { i, px: key * R * 2.2, k: n };
+    });
+    const maxStack = Math.max(...cols.values());
+    const MAXS = 30, stackH = Math.min(maxStack, MAXS) * R * 2.2;
+    const axisY = 70 + stackH, H = axisY + 46;
+    // labels for the most used units, spaced so they do not collide
+    const lab = [...items].sort((a, b) => U[b].use.length - U[a].use.length);
+    const placed = []; const labels = [];
+    for (const i of lab) {
+      if (labels.length > 22) break;
+      const w = U[i].n.length * 7 + 8, px = Math.min(Math.max(x(Math.log10(U[i].v)), padL + w / 2 - 4), W - padR - w / 2 + 4);
+      for (const row of [0, 1, 2]) {
+        if (!placed.some(p => p.row === row && Math.abs(p.px - px) < (p.w + w) / 2)) { placed.push({ px, w, row }); labels.push({ i, px, row }); break; }
+      }
+    }
+    let s = "";
+    // decades
+    const perDecade = (W - padL - padR) / (hi - lo);
+    const step = [1, 2, 3, 5, 10, 20].find(k => k * perDecade >= 44) || 30;
+    for (let d = lo; d <= hi; d++) {
+      const xx = x(d);
+      if (perDecade >= 4 || d % step === 0) s += `<line x1="${xx}" x2="${xx}" y1="${axisY}" y2="${axisY + (d % step === 0 ? 8 : 4)}" stroke="var(--ink-3)"/>`;
+      if (d % step === 0) s += `<text x="${xx}" y="${axisY + 24}" text-anchor="middle" font-size="11" fill="var(--ink-2)">10${sup(d)}</text>`;
+    }
+    s += `<line x1="${padL}" x2="${W - padR}" y1="${axisY}" y2="${axisY}" stroke="var(--ink)" stroke-width="1.5"/>`;
+    s += `<text x="${W - padR}" y="${axisY + 40}" text-anchor="end" font-size="11" fill="var(--ink-3)">${esc(G[curG].f && G[curG].f !== "1" ? G[curG].f : "no unit")}</text>`;
+    for (const l of labels) {
+      const y = 14 + l.row * 16;
+      const tx = x(Math.log10(U[l.i].v));
+      s += `<line x1="${tx}" x2="${tx}" y1="${y + 3}" y2="${axisY - 2}" stroke="var(--rule)"/>`;
+      s += `<text x="${l.px}" y="${y}" text-anchor="middle" font-size="12" font-family="var(--font-data)" fill="var(--ink-2)">${esc(U[l.i].n)}</text>`;
+    }
+    for (const p of pts) {
+      if (p.k >= MAXS) continue;
+      const y = axisY - 7 - p.k * R * 2.2, sel = p.i === curU;
+      s += `<circle data-u="${p.i}" cx="${p.px}" cy="${y}" r="${sel ? R + 2 : R}" fill="${sel ? "var(--brass)" : U[p.i].a ? "var(--ink-3)" : "var(--mark)"}" stroke="var(--sheet)" stroke-width="1" style="cursor:pointer"/>`;
+    }
+    const cur = U[curU];
+    if (cur && cur.g === curG && cur.v > 0) {
+      const xx = x(Math.log10(cur.v));
+      s += `<path d="M${xx - 6} ${axisY + 2} L${xx + 6} ${axisY + 2} L${xx} ${axisY - 6}Z" fill="var(--brass)"/>`;
+    }
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.setAttribute("width", W); svg.setAttribute("height", H);
+    svg.innerHTML = s;
+  }
+  const rulerSvg = document.getElementById("ruler");
+  rulerSvg.addEventListener("mousemove", e => {
+    const c = e.target.closest("circle"); if (!c) { hideTip(); return; }
+    const u = U[+c.dataset.u];
+    showTip(e, `<b>${esc(u.n)}</b><br>${esc(u.d)}<br>= ${num(u.v)}${esc(unitOf(u.g))}`);
+  });
+  rulerSvg.addEventListener("mouseleave", hideTip);
+  rulerSvg.addEventListener("click", e => {
+    hideTip();
+    let c = e.target.closest("circle");
+    if (!c) {   // fingers are wider than dots: take the nearest dot within reach
+      let best = 22 * 22;
+      rulerSvg.querySelectorAll("circle[data-u]").forEach(el => {
+        const r = el.getBoundingClientRect(), dx = r.x + r.width / 2 - e.clientX, dy = r.y + r.height / 2 - e.clientY, d = dx * dx + dy * dy;
+        if (d < best) { best = d; c = el; }
+      });
+    }
+    if (c) selectUnit(+c.dataset.u);
+  });
+
+  // ------------------------------------------------------------ tree
+  function renderTree() {
+    const filt = document.getElementById("tf").value.trim().toLowerCase();
+    const inG = U.map((u, i) => i).filter(i => U[i].g === curG);
+    const roots = inG.filter(i => U[i].p == null).sort((a, b) => desc[b] - desc[a] || U[a].n.localeCompare(U[b].n));
+    let keep = null;
+    if (filt) {   // show matches and their ancestors
+      keep = new Set();
+      for (const i of inG) if (U[i].n.toLowerCase().includes(filt)) { let j = i; while (j != null && !keep.has(j)) { keep.add(j); j = U[j].p; } }
+    }
+    // the selected unit's ancestors are open
+    let j = curU; while (j != null && U[j] && U[j].g === curG) { if (U[j].p != null) expanded.add(U[j].p); j = U[j].p; }
+    const sortK = (a, b) => desc[b] - desc[a] || (U[a].v || 0) - (U[b].v || 0);
+    function node(i, depth) {
+      if (keep && !keep.has(i)) return "";
+      const u = U[i], ch = kids[i].filter(c => !keep || keep.has(c)).sort(sortK);
+      const open = keep ? true : expanded.has(i);
+      const badge = u.k === "f" ? '<span class="badge fn">function</span>' : u.k === "t" ? '<span class="badge fn">table</span>' : u.k === "p" || u.k === "d" ? '<span class="badge">base</span>' : "";
+      let h = `<li><div class="row${i === curU ? " sel" : ""}${u.a ? " alias" : ""}" data-u="${i}">` +
+        (ch.length ? `<button class="tw" data-t="${i}" aria-label="${open ? "Collapse" : "Expand"}">${open ? "▾" : "▸"}</button>` : `<span class="tw">·</span>`) +
+        `<span class="nm">${esc(u.n)}</span>${badge}<span class="df">${esc(u.d)}</span>${ch.length && !open ? `<span class="cnt">+${desc[i]}</span>` : ""}</div>`;
+      if (ch.length && open) h += "<ul>" + ch.map(c => node(c, depth + 1)).join("") + "</ul>";
+      return h + "</li>";
+    }
+    const tree = document.getElementById("tree");
+    tree.innerHTML = roots.length ? "<ul>" + roots.map(r => node(r, 0)).join("") + "</ul>" : "<p class='hint'>Nothing found.</p>";
+  }
+  const treeEl = document.getElementById("tree");
+  treeEl.addEventListener("click", e => {
+    const t = e.target.closest("[data-t]");
+    if (t) { const i = +t.dataset.t; expanded.has(i) ? expanded.delete(i) : expanded.add(i); renderTree(); return; }
+    const r = e.target.closest(".row"); if (r) selectUnit(+r.dataset.u, true);
+  });
+  document.getElementById("tf").addEventListener("input", renderTree);
+  document.getElementById("expand").addEventListener("click", () => { U.forEach((u, i) => { if (u.g === curG && kids[i].length) expanded.add(i); }); renderTree(); });
+  document.getElementById("collapse").addEventListener("click", () => { expanded.clear(); renderTree(); });
+
+  // ------------------------------------------------------------ tabs
+  function setTab(t) {
+    tab = t;
+    for (const [id, name] of [["tab-ruler", "ruler"], ["tab-tree", "tree"]]) {
+      const b = document.getElementById(id); b.classList.toggle("on", t === name); b.setAttribute("aria-selected", t === name);
+      document.getElementById("panel-" + name).hidden = t !== name;
+    }
+    renderMain();
+  }
+  document.getElementById("tab-ruler").addEventListener("click", () => setTab("ruler"));
+  document.getElementById("tab-tree").addEventListener("click", () => setTab("tree"));
+  function renderMain() { if (tab === "ruler") renderRuler(); else renderTree(); }
+
+  // ------------------------------------------------------------ detail
+  function linkDef(u) {
+    // make known unit names in the definition clickable
+    return esc(u.d).replace(/[A-Za-z_$%' -￿][A-Za-z0-9_$%' -￿]*/g, w => {
+      const i = byName.get(w);
+      if (i != null && U[i].g !== PREFIX_G) return `<button class="u" data-u="${i}">${w}</button>`;
+      for (const pf of PREFIXES) {     // a prefix in front of a unit, as GNU units reads it
+        if (w.startsWith(pf.n) && w.length > pf.n.length) {
+          const j = findUnit(w.slice(pf.n.length));
+          if (j != null) return `<button class="u pf" data-u="${U.indexOf(pf)}" title="prefix ${esc(pf.n)}- = ${num(pf.v)}">${esc(pf.n)}</button><button class="u" data-u="${j}">${esc(w.slice(pf.n.length))}</button>`;
+        }
+      }
+      return w;
+    });
+  }
+  function egoSvg(i) {
+    const u = U[i];
+    const left = u.dep.slice(0, 8), right = [...u.use].sort((a, b) => U[b].use.length - U[a].use.length).slice(0, 8);
+    const rows = Math.max(left.length, right.length, 1), H = rows * 26 + 16, W = 330, cx = W / 2, cy = H / 2;
+    let s = "";
+    const col = (list, x, anchor) => list.forEach((j, k) => {
+      const y = 16 + k * 26 + (rows - list.length) * 13, other = U[j].g !== u.g;
+      s += `<line x1="${x + (anchor === "end" ? 4 : -4)}" y1="${y - 4}" x2="${cx + (anchor === "end" ? -40 : 40)}" y2="${cy}" stroke="${other ? "var(--rule)" : "var(--brass)"}" stroke-width="${other ? 1 : 1.5}"/>`;
+      const nm = U[j].n.length > 14 ? U[j].n.slice(0, 13) + "…" : U[j].n;
+      s += `<text data-u="${j}" x="${x}" y="${y}" text-anchor="${anchor}" font-size="12" font-family="var(--font-data)" fill="${other ? "var(--ink-2)" : "var(--mark)"}" style="cursor:pointer">${esc(nm)}</text>`;
+    });
+    col(left, 100, "end"); col(right, W - 100, "start");
+    s += `<rect x="${cx - 40}" y="${cy - 14}" width="80" height="28" rx="5" fill="var(--brass-soft)" stroke="var(--brass)"/>`;
+    s += `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12" font-weight="600" font-family="var(--font-data)" fill="var(--ink)">${esc(u.n.length > 10 ? u.n.slice(0, 9) + "…" : u.n)}</text>`;
+    s += `<text x="4" y="${H - 2}" font-size="10" fill="var(--ink-3)">built from</text><text x="${W - 4}" y="${H - 2}" text-anchor="end" font-size="10" fill="var(--ink-3)">used in</text>`;
+    return `<svg class="ego" viewBox="0 0 ${W} ${H + 6}" role="img" aria-label="Relations of ${esc(u.n)}">${s}</svg>`;
+  }
+  function renderDetail() {
+    const el = document.getElementById("detail");
+    const u = U[curU];
+    if (!u) { el.innerHTML = "<p class='hint'>Choose a unit.</p>"; return; }
+    const kind = KIND[u.k] || "unit";
+    let h = `<p class="label">${esc(kind)} · <button class="u" data-g="${u.g}">${esc(gname(u.g))}</button></p><h3>${esc(u.n)}</h3>`;
+    h += `<div class="def">${esc(u.n)}${u.k === "f" ? "(x)" : u.k === "t" ? "[…]" : ""} = ${linkDef(u)}</div>`;
+    if (u.v != null && u.g !== PREFIX_G) h += `<p class="val">= ${num(u.v)}${esc(unitOf(u.g))}</p>`;
+    else if (u.g === PREFIX_G) h += `<p class="val">= ${num(u.v)}</p><p class="comment">A prefix: put it in front of a unit, as in ${esc(u.n)}meter.</p>`;
+    else if (u.k === "f" || u.k === "t") h += `<p class="comment">A ${u.k === "f" ? "nonlinear function" : "table"}: the result is a ${esc(gname(u.g).toLowerCase())}${u.o ? " (in " + esc(u.o) + ")" : ""}. For example in GNU units: <code>${esc(u.n)}(…)</code>.</p>`;
+    if (u.c) h += `<p class="comment">“${esc(u.c)}”</p>`;
+    // chain to the root of the tree
+    const chain = []; let j = u.p; const seen = new Set();
+    while (j != null && !seen.has(j) && chain.length < 12) { seen.add(j); chain.push(j); j = U[j].p; }
+    if (chain.length) {
+      const items = [curU, ...chain];
+      h += `<section><p class="label">Derivation</p><ul class="chain">${items.map((k, n) => {
+        const up = items[n + 1], r = up != null ? ratio(k, up) : null;
+        return `<li>${n ? ulink(k) : esc(u.n)} <span class="eq">= ${esc(U[k].d)}</span>${r != null && Math.abs(r - 1) > 1e-12 ? `<br><span class="fac">1 ${esc(U[k].n)} = ${num(r)} ${esc(U[up].n)}</span>` : r != null ? `<br><span class="fac">same as ${esc(U[up].n)}</span>` : ""}</li>`;
+      }).join("")}</ul></section>`;
+    }
+    // conversions to the most used units of the group
+    if (u.v != null && u.g !== PREFIX_G && u.k !== "f" && u.k !== "t") {
+      const others = U.map((x, i) => i).filter(i => U[i].g === u.g && i !== curU && U[i].v > 0 && !U[i].a && /^[\x20-\x7e]+$/.test(U[i].n))
+        .sort((a, b) => U[b].use.length - U[a].use.length).slice(0, 8).sort((a, b) => U[a].v - U[b].v);
+      if (others.length) h += `<section><p class="label">1 ${esc(u.n)} is</p><table class="conv">${others.map(k => `<tr><td>${num(u.v / U[k].v)}</td><td>${ulink(k)}</td></tr>`).join("")}</table></section>`;
+    }
+    // units of the same quantity closest in size, whether or not they are related by definition
+    if (u.v > 0 && u.g !== PREFIX_G && u.k !== "f" && u.k !== "t") {
+      const lv = Math.log(u.v), seenV = new Set([u.v]);
+      const near = U.map((x, i) => i).filter(i => U[i].g === u.g && i !== curU && U[i].v > 0)
+        .sort((a, b) => Math.abs(Math.log(U[a].v) - lv) - Math.abs(Math.log(U[b].v) - lv) || U[a].a - U[b].a || U[b].use.length - U[a].use.length)
+        .filter(i => { const key = U[i].v.toPrecision(10); if (seenV.has(key)) return false; seenV.add(key); return true; })   // one name per size
+        .slice(0, 10).sort((a, b) => U[a].v - U[b].v);
+      if (near.length) h += `<section><p class="label">Similar units</p><p class="comment">Units of about the same size, even when they are not derived from each other.</p><table class="rel">${near.map(k => `<tr><td>${ulink(k)}</td><td>1 ${esc(u.n)} = ${num(u.v / U[k].v)} ${esc(U[k].n)}</td></tr>`).join("")}</table></section>`;
+    }
+    if (u.dep.length || u.use.length) h += `<section><p class="label">Relations</p><p class="comment">Direct relations from the definitions in the file.</p>${egoSvg(curU)}</section>`;
+    if (u.dep.length) {
+      h += `<section><p class="label">Built from</p><table class="rel">${u.dep.map(k => {
+        const r = ratio(curU, k);
+        return `<tr><td>${ulink(k)}</td><td>${r != null ? `1 ${esc(u.n)} = ${num(r)} ${esc(U[k].n)}` : `<span class="other">${esc(gname(U[k].g))}</span>`}</td></tr>`;
+      }).join("")}</table></section>`;
+    }
+    if (u.use.length) {
+      const byG = new Map();
+      for (const k of u.use) { if (!byG.has(U[k].g)) byG.set(U[k].g, []); byG.get(U[k].g).push(k); }
+      const gs = [...byG.keys()].sort((a, b) => (a === u.g ? -1 : b === u.g ? 1 : byG.get(b).length - byG.get(a).length));
+      h += `<section><p class="label">Used in ${u.use.length} definition${u.use.length > 1 ? "s" : ""}</p>${gs.map(g => {
+        const list = byG.get(g).sort((a, b) => (U[a].v || 0) - (U[b].v || 0) || U[a].n.localeCompare(U[b].n));
+        const same = g === u.g;
+        return `<details class="uses" ${same || list.length <= 12 ? "open" : ""}><summary>${esc(gname(g))} <span class="src">${list.length}</span></summary><table class="rel">${list.map(k => {
+          const r = ratio(k, curU);
+          return `<tr><td>${ulink(k)}</td><td>${r != null ? `= ${num(r)} ${esc(u.n)}` : `<span class="other">${esc(U[k].d)}</span>`}</td></tr>`;
+        }).join("")}</table></details>`;
+      }).join("")}</section>`;
+    }
+    h += `<section class="src">${esc(u.f)}, line ${u.l}${u.sec ? " · " + esc(u.sec) : ""}${u.pf && u.pf.length ? " · prefix " + esc(u.pf.join(", ")) : ""}</section>`;
+    el.innerHTML = h;
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest("#detail [data-u], #detail [data-g]");
+    if (!b) return;
+    if (b.dataset.g != null) { closeSheet(); selectGroup(+b.dataset.g, false); return; }
+    selectUnit(+b.dataset.u);
+  });
+
+  const narrow = matchMedia("(max-width: 760px)"), detailEl = document.getElementById("detail");
+  function openSheet() { if (narrow.matches) { document.body.classList.add("sheet"); detailEl.scrollTop = 0; } }
+  function closeSheet() { document.body.classList.remove("sheet"); }
+  document.getElementById("sheetclose").addEventListener("click", closeSheet);
+  document.addEventListener("click", e => { if (document.body.classList.contains("sheet") && !e.target.closest("#detail, #sheetclose, .search")) { closeSheet(); e.stopPropagation(); e.preventDefault(); } }, true);
+  // Android back button / Escape: close what is open first
+  window.atlasBack = function () {
+    if (!res.hidden) { res.hidden = true; return true; }
+    if (document.body.classList.contains("sheet")) { closeSheet(); return true; }
+    return false;
+  };
+  addEventListener("keydown", e => { if (e.key === "Escape") atlasBack(); });
+  function selectUnit(i, fromTree) {
+    curU = i; openSheet();
+    if (U[i].g !== curG) { curG = U[i].g; expanded.clear(); renderGroups(); renderHead(); }
+    renderMain(); renderDetail();
+  }
+
+  // ------------------------------------------------------------ search
+  const q = document.getElementById("q"), res = document.getElementById("results");
+  let hits = [], act = 0;
+  function search() {
+    const s = q.value.trim().toLowerCase();
+    if (!s) { res.hidden = true; return; }
+    const exact = [], start = [], part = [];
+    U.forEach((u, i) => { const n = u.n.toLowerCase(); if (n === s) exact.push(i); else if (n.startsWith(s)) start.push(i); else if (n.includes(s)) part.push(i); });
+    const by = (a, b) => U[b].use.length - U[a].use.length || U[a].n.length - U[b].n.length;
+    hits = [...exact, ...start.sort(by), ...part.sort(by)].slice(0, 40); act = 0;
+    // GNU units also accepts a prefix in front of any unit (kilowatt = kilo + watt) and plurals
+    let extra = "";
+    if (!exact.length) {
+      const raw = q.value.trim();
+      for (const pf of PREFIXES) {
+        if (raw.startsWith(pf.n) && raw.length > pf.n.length) {
+          const rest = raw.slice(pf.n.length), j = findUnit(rest);
+          if (j != null) { hits.unshift(j); extra = `${raw} = ${pf.n} (${num(pf.v)}) × ${U[j].n}`; break; }
+        }
+      }
+      if (!extra) { const j = findUnit(raw); if (j != null && j !== exact[0]) { hits.unshift(j); extra = `${raw} is a plural of ${U[j].n}`; } }
+    }
+    res.innerHTML = hits.length ? hits.map((i, k) => `<button data-u="${i}" class="${k === 0 ? "on" : ""}"><span>${esc(k === 0 && extra ? extra : U[i].n)}</span><span class="q">${esc(gname(U[i].g))}</span></button>`).join("") : `<p class="hint" style="padding:8px 12px;margin:0">No unit found. GNU units also understands prefixes (kilo, milli) and plurals.</p>`;
+    res.hidden = false;
+  }
+  q.addEventListener("input", search);
+  q.addEventListener("keydown", e => {
+    if (res.hidden || !hits.length) return;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); act = (act + (e.key === "ArrowDown" ? 1 : hits.length - 1)) % hits.length; [...res.children].forEach((b, k) => b.classList.toggle("on", k === act)); res.children[act].scrollIntoView({ block: "nearest" }); }
+    if (e.key === "Enter") { e.preventDefault(); pick(hits[act]); }
+    if (e.key === "Escape") res.hidden = true;
+  });
+  res.addEventListener("click", e => { const b = e.target.closest("button"); if (b) pick(+b.dataset.u); });
+  document.addEventListener("click", e => { if (!e.target.closest(".search")) res.hidden = true; });
+  function findUnit(w) {
+    for (const c of [w, w.replace(/ies$/, "y"), w.replace(/es$/, ""), w.replace(/s$/, "")]) {
+      const i = byName.get(c); if (i != null && U[i].g !== PREFIX_G) return i;
+    }
+    return null;
+  }
+  function pick(i) { res.hidden = true; q.value = U[i].n; selectUnit(i); }
+
+  let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { if (tab === "ruler") renderRuler(); }, 120); });
+
+  // ------------------------------------------------------------ source files: bundled or uploaded
+  const BUNDLED = JSON.parse(document.getElementById("files").textContent);
+  const STORE = "gnu-units-atlas-files";
+  const srcEl = document.getElementById("srcinfo"), msgEl = document.getElementById("srcmsg");
+  const resetBtn = document.getElementById("reset"), fileIn = document.getElementById("file");
+  let source = null;     // { files, main, uploaded: [names], when }
+
+  function loadStored() { try { const t = localStorage.getItem(STORE); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
+  function saveStored(v) { try { if (v) localStorage.setItem(STORE, JSON.stringify(v)); else localStorage.removeItem(STORE); return true; } catch (e) { return false; } }
+
+  function apply(src, note) {
+    const files = Object.assign({}, src.files);
+    let built;
+    try { built = AtlasCore.build(files, src.main); }
+    catch (e) { return { ok: false, error: "The file could not be read: " + e.message }; }
+    // includes that were not uploaded: use the bundled copy when there is one
+    const filled = built.missing.filter(m => BUNDLED[m] && !files[m]);
+    if (filled.length) { filled.forEach(m => files[m] = BUNDLED[m]); built = AtlasCore.build(files, src.main); }
+    if (built.units.length < 10) return { ok: false, error: `Hardly any units were found in ${src.main}. Is it a GNU units definitions file?` };
+    const keepName = curU != null && U ? U[curU].n : "foot";
+    source = src; built.filled = filled; built.stillMissing = built.missing.filter(m => !files[m]);
+    setData(built);
+    let g = groupIndex("Length"); if (g < 0) g = 0;
+    const k = byName.get(keepName) ?? byName.get("foot");
+    if (k != null && U[k].g !== PREFIX_G) { curG = U[k].g; curU = k; selectGroup(curG, false); }
+    else selectGroup(g, true);
+    showSource(built, note);
+    return { ok: true };
+  }
+
+  function showSource(b, note) {
+    const up = source.uploaded && source.uploaded.length;
+    const n = U.length.toLocaleString("en-GB");
+    document.getElementById("sub").textContent = `${n} units and prefixes from ${b.meta.version}, in ${G.length} quantities`;
+    const when = up && source.when ? ", loaded " + new Date(source.when).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "";
+    srcEl.innerHTML = `<b>${esc(source.main)}</b> ${up ? "(your file" + when + ")" : "(bundled)"} · ${esc(b.meta.version)}`;
+    resetBtn.hidden = !up;
+    const parts = [];
+    if (note) parts.push(`<p>${note}</p>`);
+    if (b.filled.length) parts.push(`<p>${b.filled.map(esc).join(", ")} ${b.filled.length > 1 ? "were" : "was"} missing and the bundled version is used. Load ${b.filled.length > 1 ? "those files" : "that file"} together with ${esc(source.main)} to replace ${b.filled.length > 1 ? "them" : "it"}.</p>`);
+    if (b.stillMissing.length) parts.push(`<p>Not found and skipped: ${b.stillMissing.map(esc).join(", ")}. Load ${b.stillMissing.length > 1 ? "those files" : "that file"} together with ${esc(source.main)}.</p>`);
+    if (b.errors.length) parts.push(`<details><summary>${b.errors.length} ${b.errors.length === 1 ? "definition" : "definitions"} could not be evaluated</summary><ul>${b.errors.slice(0, 200).map(e => `<li><code>${esc(e.name)}</code> <span class="src">${esc(e.file)}:${e.line}</span> ${esc(e.error)}</li>`).join("")}</ul></details>`);
+    msgEl.innerHTML = parts.join("");
+    msgEl.hidden = !parts.length;
+  }
+
+  function pickMain(names, files) {
+    if (names.includes("definitions.units")) return "definitions.units";
+    const inc = names.filter(n => /^\s*!include\s/m.test(files[n]));
+    const pool = inc.length ? inc : names;
+    return pool.reduce((a, b) => files[b].length > files[a].length ? b : a);
+  }
+
+  async function readFiles(list) {
+    const arr = [...list]; if (!arr.length) return;
+    msgEl.hidden = false; msgEl.innerHTML = "<p>Reading and evaluating…</p>";
+    const files = {};
+    for (const f of arr) files[f.name] = await f.text();
+    const names = Object.keys(files);
+    const src = { files, main: pickMain(names, files), uploaded: names, when: Date.now() };
+    await new Promise(r => setTimeout(r, 20));
+    const r = apply(src);
+    if (!r.ok) { msgEl.hidden = false; msgEl.innerHTML = `<p class="err">${esc(r.error)} The previous version stays in place.</p>`; return; }
+    const saved = saveStored(src);
+    if (!saved) { msgEl.hidden = false; msgEl.insertAdjacentHTML("afterbegin", "<p>This browser cannot store the file; after a reload you will see the bundled version again.</p>"); }
+  }
+
+  fileIn.addEventListener("change", () => { readFiles(fileIn.files); fileIn.value = ""; });
+  resetBtn.addEventListener("click", () => { saveStored(null); apply({ files: BUNDLED, main: "definitions.units", uploaded: [] }, "Back to the bundled version."); });
+  let dragN = 0;
+  addEventListener("dragenter", e => { if ([...e.dataTransfer.types].includes("Files")) { e.preventDefault(); dragN++; document.body.classList.add("dropping"); } });
+  addEventListener("dragleave", () => { if (--dragN <= 0) { dragN = 0; document.body.classList.remove("dropping"); } });
+  addEventListener("dragover", e => { if ([...e.dataTransfer.types].includes("Files")) e.preventDefault(); });
+  addEventListener("drop", e => { if (!e.dataTransfer.files.length) return; e.preventDefault(); dragN = 0; document.body.classList.remove("dropping"); readFiles(e.dataTransfer.files); });
+
+  const stored = loadStored();
+  const first = stored && stored.files && stored.main ? apply(stored) : { ok: false };
+  if (!first.ok) apply({ files: BUNDLED, main: "definitions.units", uploaded: [] }, stored ? "The stored file could not be read; showing the bundled version." : "");
+})();
+</script>
+</body>
+</html>

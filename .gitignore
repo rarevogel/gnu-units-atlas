@@ -1,0 +1,9 @@
+# build output
+android/build/
+android/assets/index.html
+*.apk
+*.idsig
+
+# signing keys never go into the repository
+*.keystore
+*.jks
